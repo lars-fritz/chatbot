@@ -8,7 +8,7 @@ def load_document(file_path):
         with open(file_path, "r") as file:
             return file.read()
     else:
-        return "Document not found. Please ensure the file is in the same directory as the app."
+        return None
 
 # Split the document into manageable chunks
 def chunk_text(text, max_length=500):
@@ -16,7 +16,10 @@ def chunk_text(text, max_length=500):
     return [' '.join(words[i:i + max_length]) for i in range(0, len(words), max_length)]
 
 # Initialize the QA pipeline
-qa_pipeline = pipeline("question-answering", model="distilbert-base-uncased-distilled-squad")
+try:
+    qa_pipeline = pipeline("question-answering", model="distilbert-base-uncased-distilled-squad")
+except Exception as e:
+    st.error(f"Failed to load the QA pipeline: {e}")
 
 # Streamlit app layout
 st.title("Thena Docs Chatbot")
@@ -26,8 +29,8 @@ st.write("Ask questions about the `thena_docs.md` document!")
 document_path = "thena_docs.md"
 document_text = load_document(document_path)
 
-if document_text == "Document not found. Please ensure the file is in the same directory as the app.":
-    st.error(document_text)
+if not document_text:
+    st.error("Document not found. Please ensure the `thena_docs.md` file is in the same directory as this app.")
 else:
     # Preprocess the document into chunks
     chunks = chunk_text(document_text)
@@ -37,13 +40,13 @@ else:
 
     if user_question:
         # Find the most relevant chunk (basic implementation)
-        relevant_chunk = max(chunks, key=lambda x: user_question in x)
-        
-        # Get the answer using the QA pipeline
-        response = qa_pipeline({'question': user_question, 'context': relevant_chunk})
-        st.write(f"**Answer:** {response['answer']}")
+        try:
+            relevant_chunk = max(chunks, key=lambda x: user_question in x)
+            response = qa_pipeline({'question': user_question, 'context': relevant_chunk})
+            st.write(f"**Answer:** {response['answer']}")
+        except Exception as e:
+            st.error(f"An error occurred while processing your question: {e}")
 
     # Optional: Display the document content
     if st.checkbox("Show document content"):
-        st.write(document_text)
-
+        st.text_area("Document Content", document_text, height=400)
