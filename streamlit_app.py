@@ -1,56 +1,49 @@
 import streamlit as st
-from openai import OpenAI
+from transformers import pipeline
+import os
 
-# Show title and description.
-st.title("💬 Chatbot")
-st.write(
-    "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-    "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
-)
+# Load the document
+def load_document(file_path):
+    if os.path.exists(file_path):
+        with open(file_path, "r") as file:
+            return file.read()
+    else:
+        return "Document not found. Please ensure the file is in the same directory as the app."
 
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-openai_api_key = st.text_input("OpenAI API Key", type="password")
-if not openai_api_key:
-    st.info("Please add your OpenAI API key to continue.", icon="🗝️")
+# Split the document into manageable chunks
+def chunk_text(text, max_length=500):
+    words = text.split()
+    return [' '.join(words[i:i + max_length]) for i in range(0, len(words), max_length)]
+
+# Initialize the QA pipeline
+qa_pipeline = pipeline("question-answering", model="distilbert-base-uncased-distilled-squad")
+
+# Streamlit app layout
+st.title("Thena Docs Chatbot")
+st.write("Ask questions about the `thena_docs.md` document!")
+
+# Load the document
+document_path = "thena_docs.md"
+document_text = load_document(document_path)
+
+if document_text == "Document not found. Please ensure the file is in the same directory as the app.":
+    st.error(document_text)
 else:
+    # Preprocess the document into chunks
+    chunks = chunk_text(document_text)
 
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
+    # User input
+    user_question = st.text_input("Enter your question:")
 
-    # Create a session state variable to store the chat messages. This ensures that the
-    # messages persist across reruns.
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+    if user_question:
+        # Find the most relevant chunk (basic implementation)
+        relevant_chunk = max(chunks, key=lambda x: user_question in x)
+        
+        # Get the answer using the QA pipeline
+        response = qa_pipeline({'question': user_question, 'context': relevant_chunk})
+        st.write(f"**Answer:** {response['answer']}")
 
-    # Display the existing chat messages via `st.chat_message`.
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    # Optional: Display the document content
+    if st.checkbox("Show document content"):
+        st.write(document_text)
 
-    # Create a chat input field to allow the user to enter a message. This will display
-    # automatically at the bottom of the page.
-    if prompt := st.chat_input("What is up?"):
-
-        # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        # Generate a response using the OpenAI API.
-        stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
-        )
-
-        # Stream the response to the chat using `st.write_stream`, then store it in 
-        # session state.
-        with st.chat_message("assistant"):
-            response = st.write_stream(stream)
-        st.session_state.messages.append({"role": "assistant", "content": response})
