@@ -1,4 +1,8 @@
-streamlit
-openai
-transformers
-pipeline
+streamlit==1.25.0       # Streamlit for building the app
+transformers==4.33.2    # Hugging Face Transformers library for NLP models
+torch>=2.0.0            # PyTorch for Hugging Face model backend
+pdfplumber==0.9.0       # For processing PDF files (optional, if needed)
+python-docx==0.8.11     # For processing Word documents (optional, if needed)
+numpy>=1.21.0           # Required by some NLP models
+sentence-transformers==2.2.2  # For advanced chunking and retrieval (optional)
+faiss-cpu==1.7.3        # Optional: FAISS for efficient vector search
